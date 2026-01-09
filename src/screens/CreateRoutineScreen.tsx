@@ -32,7 +32,7 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
 
   const onSave = () => {
     const newRoutine = {
-      id: routine?.id ?? Date.now(),
+      id: routine?.id ?? Date.now().toString(),
       title,
       time: time.getTime(),
       active,

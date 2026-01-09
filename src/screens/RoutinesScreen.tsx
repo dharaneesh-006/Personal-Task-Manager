@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,35 @@ import NeonBottomBar from '../components/NeonBottomBar';
 import { useRoutines, Routine } from '../context/RoutineContext';
 import { hapticLight, hapticWarning } from '../utils/haptics';
 import {
-  scheduleAlarm,
-  cancelAlarm,
-} from '../native/AlarmManager';
+  scheduleRoutineNotification,
+  cancelRoutineNotification,
+} from '../utils/notificationScheduler';
+import AlarmManager from '../native/AlarmManager';
+import { ensureExactAlarmPermission } from '../utils/exactAlarm';
 
+/* ================================
+   Helper: get next valid trigger
+================================ */
+const getNextTriggerTime = (time: number) => {
+  const now = Date.now();
+  const base = new Date(time);
+  const next = new Date();
+
+  next.setHours(base.getHours());
+  next.setMinutes(base.getMinutes());
+  next.setSeconds(0);
+  next.setMilliseconds(0);
+
+  if (next.getTime() <= now) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return next.getTime();
+};
+
+/* ================================
+   Routine Card
+================================ */
 function RoutineCard({
   routine,
   onToggle,
@@ -40,12 +65,13 @@ function RoutineCard({
   const glow = useSharedValue(routine.active ? 1 : 0);
   const scale = useSharedValue(routine.active ? 1 : 0.96);
 
-  glow.value = withTiming(routine.active ? 1 : 0, { duration: 250 });
-  scale.value = withTiming(routine.active ? 1 : 0.96, { duration: 250 });
+  useEffect(() => {
+    glow.value = withTiming(routine.active ? 1 : 0, { duration: 250 });
+    scale.value = withTiming(routine.active ? 1 : 0.96, { duration: 250 });
+  }, [routine.active]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    shadowOpacity: glow.value,
   }));
 
   const timeText = new Date(routine.time).toLocaleTimeString([], {
@@ -53,25 +79,26 @@ function RoutineCard({
     minute: '2-digit',
   });
 
-  const renderDelete = () => (
-    <View style={styles.deleteBox}>
-      <Icon name="trash-outline" size={26} color="#fff" />
-    </View>
-  );
-
   return (
-    <Swipeable renderRightActions={renderDelete} onSwipeableOpen={onDelete}>
+    <Swipeable
+      renderRightActions={() => (
+        <View style={styles.deleteBox}>
+          <Icon name="trash-outline" size={24} color="#fff" />
+        </View>
+      )}
+      onSwipeableOpen={onDelete}
+    >
       <Pressable onPress={onToggle}>
         <Animated.View style={animatedStyle}>
           <LinearGradient
             colors={Gradients.card}
-            style={[styles.card, routine.active ? Glow.soft : null]}
+            style={[styles.card, routine.active && Glow.soft]}
           >
             <View>
               <Text style={styles.time}>{timeText}</Text>
               <Text style={styles.name}>{routine.title}</Text>
               <Text style={styles.mode}>
-                {(routine.mode ?? 'both').toUpperCase()}
+                {routine.mode.toUpperCase()}
               </Text>
             </View>
 
@@ -83,17 +110,14 @@ function RoutineCard({
                   color={Colors.neonBlue}
                 />
               </Pressable>
-
-              <Icon
-                name={routine.active ? 'alarm' : 'alarm-outline'}
-                size={22}
-                color={routine.active ? Colors.neonGreen : Colors.textMuted}
-              />
-
               <Text
                 style={[
                   styles.status,
-                  { color: routine.active ? Colors.neonGreen : Colors.textMuted },
+                  {
+                    color: routine.active
+                      ? Colors.neonGreen
+                      : Colors.textMuted,
+                  },
                 ]}
               >
                 {routine.active ? 'ON' : 'OFF'}
@@ -106,39 +130,66 @@ function RoutineCard({
   );
 }
 
+/* ================================
+   Screen
+================================ */
 export default function RoutinesScreen({ navigation }: any) {
   const { routines, toggleRoutine, deleteRoutine } = useRoutines();
 
-  const handleToggle = (routine: Routine) => {
-    hapticLight();
+  const handleToggle = async (routine: Routine) => {
+  console.log('👉 TOGGLE:', routine.id, 'currently', routine.active);
 
-    // schedule / cancel alarm
-    // if (!routine.active && (routine.mode === 'ring' || routine.mode === 'both')) {
-    //   scheduleAlarm(routine.id, routine.time);
-    // } else {
-    //   cancelAlarm(routine.id);
-    // }
+  if (!routine.active) {
+    console.log('🟢 Turning routine ON');
 
-    toggleRoutine(routine.id);
-  };
+    const allowed = await ensureExactAlarmPermission();
+    if (!allowed) return;
+
+    if (routine.mode !== 'ring') {
+      await scheduleRoutineNotification(
+        routine.id,
+        routine.title,
+        routine.time
+      );
+    }
+
+    if (routine.mode !== 'notify') {
+      AlarmManager.scheduleAlarm(
+        routine.id,
+        routine.time,
+        routine.title,
+        routine.mode
+      );
+    }
+  } else {
+    console.log('🔴 Turning routine OFF');
+    await cancelRoutineNotification(routine.id);
+    AlarmManager.cancelAlarm(routine.id);
+  }
+
+  toggleRoutine(routine.id);
+};
+
+
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Routines</Text>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {routines.map(routine => (
+        {routines.map(r => (
           <RoutineCard
-            key={routine.id}
-            routine={routine}
-            onToggle={() => handleToggle(routine)}
+            key={r.id}
+            routine={r}
+            onToggle={() => handleToggle(r)}
             onEdit={() =>
-              navigation.navigate('CreateRoutine', { routine })
+              navigation.navigate('CreateRoutine', { routine: r })
             }
             onDelete={() => {
               hapticWarning();
-              // cancelAlarm(routine.id);
-              deleteRoutine(routine.id);
+              cancelRoutineNotification(r.id);
+              AlarmManager.cancelAlarm(r.id);
+              deleteRoutine(r.id);
             }}
           />
         ))}
@@ -149,6 +200,9 @@ export default function RoutinesScreen({ navigation }: any) {
   );
 }
 
+/* ================================
+   Styles
+================================ */
 const styles = StyleSheet.create({
   container: {
     flex: 1,

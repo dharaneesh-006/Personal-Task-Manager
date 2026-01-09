@@ -12,13 +12,25 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RoutineProvider } from './src/context/RoutineContext';
 import HomeScreen from './src/screens/HomeScreen';
 import TasksScreen from './src/screens/TasksScreen';
-import RoutinesScreen from './src/screens/RoutinesScreen';
+import RoutinesScreen from './src/screens/RoutinesScreen';  
 import SettingsScreen from './src/screens/SettingsScreen';
 import CreateRoutineScreen from './src/screens/CreateRoutineScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+
+  useEffect(() => {
+    (async () => {
+      const allowed = await requestNotificationPermission();
+      console.log('🔔 Notification permission:', allowed);
+      if (allowed) {
+        await setupNotificationChannel();
+      }
+    })();
+  }, []);
+
+
   useEffect(() => {
     (async () => {
       const allowed = await requestNotificationPermission();

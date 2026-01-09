@@ -11,11 +11,11 @@ import com.facebook.react.bridge.ReactMethod;
 
 public class AlarmModule extends ReactContextBaseJavaModule {
 
-    private final ReactApplicationContext reactContext;
+    private final AlarmManager alarmManager;
 
     public AlarmModule(ReactApplicationContext context) {
         super(context);
-        reactContext = context;
+        alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
     }
 
     @Override
@@ -24,36 +24,32 @@ public class AlarmModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void scheduleAlarm(int routineId, double triggerAtMillis) {
-        AlarmManager alarmManager = (AlarmManager) reactContext.getSystemService(Context.ALARM_SERVICE);
+    public void scheduleAlarm(String id, double time, String title, String mode) {
+        Intent intent = new Intent(getReactApplicationContext(), AlarmReceiver.class);
+        intent.putExtra("id", id);
+        intent.putExtra("title", title);
+        intent.putExtra("mode", mode);
 
-        Intent intent = new Intent(reactContext, AlarmReceiver.class);
-        intent.putExtra("routineId", routineId);
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                reactContext,
-                routineId,
+        PendingIntent pi = PendingIntent.getBroadcast(
+                getReactApplicationContext(),
+                id.hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
-                (long) triggerAtMillis,
-                pendingIntent);
+                (long) time,
+                pi);
     }
 
     @ReactMethod
-    public void cancelAlarm(int routineId) {
-        AlarmManager alarmManager = (AlarmManager) reactContext.getSystemService(Context.ALARM_SERVICE);
-
-        Intent intent = new Intent(reactContext, AlarmReceiver.class);
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                reactContext,
-                routineId,
+    public void cancelAlarm(String id) {
+        Intent intent = new Intent(getReactApplicationContext(), AlarmReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(
+                getReactApplicationContext(),
+                id.hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        alarmManager.cancel(pendingIntent);
+        alarmManager.cancel(pi);
     }
 }

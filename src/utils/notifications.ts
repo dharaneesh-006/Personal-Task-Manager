@@ -41,7 +41,7 @@ export async function showTestNotification() {
     body: 'Notifications are enabled 🎉',
     android: {
       channelId: 'routine',
-      smallIcon: 'ic_notification',
+      smallIcon: 'ic_launcher',
     },
   });
 }
