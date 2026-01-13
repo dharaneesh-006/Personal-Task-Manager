@@ -137,38 +137,33 @@ export default function RoutinesScreen({ navigation }: any) {
   const { routines, toggleRoutine, deleteRoutine } = useRoutines();
 
   const handleToggle = async (routine: Routine) => {
-  console.log('👉 TOGGLE:', routine.id, 'currently', routine.active);
+    console.log('🔁 TOGGLE:', routine.id, routine.active);
 
-  if (!routine.active) {
-    console.log('🟢 Turning routine ON');
+    if (!routine.active) {
+      if (routine.mode === 'notify' || routine.mode === 'both') {
+        await scheduleRoutineNotification(
+          routine.id,
+          routine.title,
+          routine.time
+        );
+      }
 
-    const allowed = await ensureExactAlarmPermission();
-    if (!allowed) return;
-
-    if (routine.mode !== 'ring') {
-      await scheduleRoutineNotification(
-        routine.id,
-        routine.title,
-        routine.time
-      );
+      if (routine.mode === 'ring' || routine.mode === 'both') {
+        AlarmManager.scheduleAlarm(
+          routine.id,
+          routine.time,
+          routine.title,
+          routine.mode
+        );
+      }
+    } else {
+      await cancelRoutineNotification(routine.id);
+      AlarmManager.cancelAlarm(routine.id);
     }
 
-    if (routine.mode !== 'notify') {
-      AlarmManager.scheduleAlarm(
-        routine.id,
-        routine.time,
-        routine.title,
-        routine.mode
-      );
-    }
-  } else {
-    console.log('🔴 Turning routine OFF');
-    await cancelRoutineNotification(routine.id);
-    AlarmManager.cancelAlarm(routine.id);
-  }
+    toggleRoutine(routine.id);
+  };
 
-  toggleRoutine(routine.id);
-};
 
 
 

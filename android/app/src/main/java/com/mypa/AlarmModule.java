@@ -24,23 +24,25 @@ public class AlarmModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void scheduleAlarm(String id, double time, String title, String mode) {
-        Intent intent = new Intent(getReactApplicationContext(), AlarmReceiver.class);
-        intent.putExtra("id", id);
-        intent.putExtra("title", title);
-        intent.putExtra("mode", mode);
+public void scheduleAlarm(String id, double time, String title, String mode) {
+    Intent intent = new Intent(getReactApplicationContext(), AlarmReceiver.class);
+    intent.putExtra("title", title);
+    intent.putExtra("mode", mode);
 
-        PendingIntent pi = PendingIntent.getBroadcast(
-                getReactApplicationContext(),
-                id.hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    PendingIntent pi = PendingIntent.getBroadcast(
+        getReactApplicationContext(),
+        id.hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+    );
 
-        alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                (long) time,
-                pi);
-    }
+    alarmManager.setExactAndAllowWhileIdle(
+        AlarmManager.RTC_WAKEUP,
+        (long) time,
+        pi
+    );
+}
+
 
     @ReactMethod
     public void cancelAlarm(String id) {

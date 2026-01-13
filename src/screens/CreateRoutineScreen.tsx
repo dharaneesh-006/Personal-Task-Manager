@@ -15,8 +15,14 @@ import { Colors } from '../theme/colors';
 import { Gradients } from '../theme/gradients';
 import { Glow } from '../theme/glow';
 import NeonInput from '../components/NeonInput';
+
 import { useRoutines, RoutineMode } from '../context/RoutineContext';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
+import { ensureExactAlarmPermission } from '../utils/exactAlarm';
+import {
+  scheduleRoutineNotification,
+} from '../utils/notificationScheduler';
+import AlarmManager from '../native/AlarmManager';
 
 export default function CreateRoutineScreen({ navigation, route }: any) {
   const routine = route?.params?.routine;
@@ -30,16 +36,41 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
   const [mode, setMode] = useState<RoutineMode>(routine?.mode ?? 'both');
   const [showPicker, setShowPicker] = useState(false);
 
-  const onSave = () => {
+  const onSave = async () => {
     const newRoutine = {
-      id: routine?.id ?? Date.now().toString(),
+      id: routine?.id ?? String(Date.now()),
       title,
       time: time.getTime(),
       active,
       mode,
     };
 
+    console.log('💾 SAVING ROUTINE:', newRoutine);
+
     routine ? updateRoutine(newRoutine) : addRoutine(newRoutine);
+
+    if (active) {
+      const allowed = await ensureExactAlarmPermission();
+      if (!allowed) return;
+
+      if (mode === 'notify' || mode === 'both') {
+        await scheduleRoutineNotification(
+          newRoutine.id,
+          newRoutine.title,
+          newRoutine.time
+        );
+      }
+
+      if (mode === 'ring' || mode === 'both') {
+        AlarmManager.scheduleAlarm(
+          newRoutine.id,
+          newRoutine.time,
+          newRoutine.title,
+          mode
+        );
+      }
+    }
+
     hapticSuccess();
     navigation.goBack();
   };
@@ -62,10 +93,7 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
       >
         <Icon name="time-outline" size={20} color={Colors.neonBlue} />
         <Text style={styles.timeText}>
-          {time.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </Pressable>
 
@@ -83,17 +111,12 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
 
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Enable Routine</Text>
-        <Switch
-          value={active}
-          onValueChange={setActive}
-          trackColor={{ false: '#333', true: Colors.neonPurple }}
-          thumbColor={active ? Colors.neonBlue : '#999'}
-        />
+        <Switch value={active} onValueChange={setActive} />
       </View>
 
       <Text style={styles.sectionTitle}>Alert Type</Text>
 
-      {(['notification', 'ring', 'both'] as RoutineMode[]).map(opt => (
+      {(['notify', 'ring', 'both'] as RoutineMode[]).map(opt => (
         <Pressable
           key={opt}
           style={styles.optionRow}
@@ -112,10 +135,7 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
       ))}
 
       <Pressable onPress={onSave} style={styles.saveWrapper}>
-        <LinearGradient
-          colors={Gradients.primary}
-          style={[styles.saveBtn, Glow.strong]}
-        >
+        <LinearGradient colors={Gradients.primary} style={styles.saveBtn}>
           <Text style={styles.saveText}>Save Routine</Text>
         </LinearGradient>
       </Pressable>
@@ -124,69 +144,16 @@ export default function CreateRoutineScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-    padding: 20,
-  },
-  title: {
-    color: Colors.neonBlue,
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 24,
-  },
-  timeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
-  },
-  timeText: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    marginLeft: 12,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  toggleLabel: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-  },
-  sectionTitle: {
-    color: Colors.textMuted,
-    marginTop: 30,
-    marginBottom: 10,
-    fontSize: 14,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderColor: '#333',
-  },
-  optionText: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-  },
-  saveWrapper: {
-    marginTop: 40,
-  },
-  saveBtn: {
-    paddingVertical: 16,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  saveText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  container: { flex: 1, backgroundColor: Colors.bg, padding: 20 },
+  title: { color: Colors.neonBlue, fontSize: 28, marginBottom: 20 },
+  timeBox: { flexDirection: 'row', alignItems: 'center', padding: 14 },
+  timeText: { color: Colors.textPrimary, marginLeft: 12 },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  toggleLabel: { color: Colors.textPrimary },
+  sectionTitle: { color: Colors.textMuted, marginTop: 30 },
+  optionRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 },
+  optionText: { color: Colors.textPrimary },
+  saveWrapper: { marginTop: 40 },
+  saveBtn: { paddingVertical: 16, borderRadius: 20, alignItems: 'center' },
+  saveText: { color: '#fff', fontWeight: '700' },
 });

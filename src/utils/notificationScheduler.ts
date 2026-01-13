@@ -1,21 +1,12 @@
-import notifee, {
-  TriggerType,
-  AndroidImportance,
-} from '@notifee/react-native';
+import notifee, { TriggerType, AndroidImportance } from '@notifee/react-native';
 
-function computeNextTrigger(time: number) {
+function computeNext(time: number) {
   const now = Date.now();
   const base = new Date(time);
   const next = new Date();
 
-  next.setHours(base.getHours());
-  next.setMinutes(base.getMinutes());
-  next.setSeconds(0);
-  next.setMilliseconds(0);
-
-  if (next.getTime() <= now) {
-    next.setDate(next.getDate() + 1);
-  }
+  next.setHours(base.getHours(), base.getMinutes(), 0, 0);
+  if (next.getTime() <= now) next.setDate(next.getDate() + 1);
 
   return next.getTime();
 }
@@ -25,11 +16,9 @@ export async function scheduleRoutineNotification(
   title: string,
   time: number
 ) {
-  const triggerTime = computeNextTrigger(time);
+  const trigger = computeNext(time);
 
-  console.log(
-    `🔔 [NOTIF] Scheduling notification at ${new Date(triggerTime).toLocaleString()}`
-  );
+  console.log('🔔 NOTIF scheduled at', new Date(trigger).toLocaleString());
 
   await notifee.createChannel({
     id: 'routine',
@@ -45,19 +34,12 @@ export async function scheduleRoutineNotification(
       android: {
         channelId: 'routine',
         smallIcon: 'ic_launcher',
-        pressAction: { id: 'default' },
       },
     },
-    {
-      type: TriggerType.TIMESTAMP,
-      timestamp: triggerTime,
-    }
+    { type: TriggerType.TIMESTAMP, timestamp: trigger }
   );
-
-  console.log(`✅ [NOTIF] Scheduled ID: routine_${id}`);
 }
 
 export async function cancelRoutineNotification(id: string) {
-  console.log(`❌ [NOTIF] Cancelling notification: ${id}`);
   await notifee.cancelNotification(`routine_${id}`);
 }

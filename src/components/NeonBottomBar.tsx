@@ -24,7 +24,7 @@ export default function NeonBottomBar() {
           name="checkmark-done-outline"
           size={24}
           color={Colors.textMuted}
-          onPress={() => navigation.navigate('Tasks')}
+          onPress={() => navigation.navigate('Todos')}
         />
 
         {/* FAB */}

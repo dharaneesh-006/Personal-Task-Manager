@@ -1,10 +1,33 @@
-# Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in /usr/local/Cellar/android-sdk/24.3.3/tools/proguard/proguard-android.txt
-# You can edit the include path and order by changing the proguardFiles
-# directive in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+########################################
+# React Native
+########################################
+-keep class com.facebook.react.** { *; }
+-dontwarn com.facebook.react.**
 
-# Add any project specific keep options here:
+########################################
+# Hermes
+########################################
+-keep class com.facebook.hermes.** { *; }
+-dontwarn com.facebook.hermes.**
+
+########################################
+# Notifee (Notifications)
+########################################
+-keep class app.notifee.** { *; }
+-dontwarn app.notifee.**
+
+########################################
+# Reanimated
+########################################
+-keep class com.swmansion.reanimated.** { *; }
+-dontwarn com.swmansion.reanimated.**
+
+########################################
+# AlarmManager / Native Modules
+########################################
+-keep class com.mypa.** { *; }
+
+########################################
+# Kotlin Metadata
+########################################
+-keepclassmembers class kotlin.Metadata { *; }
